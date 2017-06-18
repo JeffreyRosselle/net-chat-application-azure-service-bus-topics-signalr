@@ -1,0 +1,76 @@
+﻿body {
+    padding-top: 50px;
+    padding-bottom: 20px;
+}
+
+.navbar-brand {
+    padding: 0;
+    margin-left: 15px;
+}
+
+    .navbar-brand img {
+        height: 50px;
+    }
+
+.navbar-inverse {
+    background-color: #EA8300 !important;
+    border-color: #EA8300 !important;
+}
+
+    .navbar-inverse .navbar-brand {
+        color: white;
+    }
+
+    .navbar-inverse .navbar-nav li > a {
+        color: white !important;
+    }
+
+    .navbar-inverse .navbar-nav li ul li > a {
+        color: black !important;
+    }
+
+#chat {
+    height: 400px;
+    overflow-y: scroll;
+    overflow-wrap: break-word;
+    border: 1px solid #EA8300;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+    #chat .chatmessage {
+        width: 100%;
+        border-bottom: 1px dotted #EA8300;
+    }
+
+.input #message {
+    width: 100%;
+}
+
+/* Set padding to keep content from hitting the edges */
+.body-content {
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+/* Override the default bootstrap behavior where horizontal description lists 
+   will truncate terms that are too long to fit in the left column 
+*/
+.dl-horizontal dt {
+    white-space: normal;
+}
+
+/* Set width on the form input elements since they're 100% wide by default */
+input,
+select,
+textarea {
+    max-width: 280px;
+}
+
+.text-lg {
+    font-size: 24px;
+}
+.space-md {
+    height: 32px;
+}

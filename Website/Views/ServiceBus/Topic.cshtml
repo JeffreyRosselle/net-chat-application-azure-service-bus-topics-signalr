@@ -1,0 +1,147 @@
+﻿
+@{
+    ViewBag.Title = "Chat";
+    Layout = "~/Views/Shared/_Layout.cshtml";    
+}
+
+<h2>Topic/Chat</h2>
+
+<div>
+    Name: <input type="text" id="name" />
+</div>
+<div id="chat">
+
+</div>
+<div class="input">
+    <input type="text" id="message" />
+    <input type="button" id="sendmessage" value="Send" class="btn btn-default" />
+</div>
+
+<h2>Code</h2>
+<h3>Service</h3>
+<pre>
+    using Microsoft.ServiceBus;
+    using Microsoft.ServiceBus.Messaging;
+    using System;
+    using System.Configuration;
+    namespace ServiceBus.Services
+    {
+        public class TopicService
+        {
+            public TopicService()
+            {
+                var mngr = NamespaceManager.CreateFromConnectionString(ConfigurationManager.AppSettings.Get("ServiceBusConnectionString"));
+                if (!mngr.TopicExists("topic"))
+                {
+                    var td = new TopicDescription("topic");
+                    td.MaxSizeInMegabytes = 5120;
+                    td.DefaultMessageTimeToLive = new TimeSpan(0, 0, 10);
+                    mngr.CreateTopic("topic");
+                }
+                if (!mngr.SubscriptionExists("topic", "all"))
+                {
+                    mngr.CreateSubscription("topic", "all");
+                }
+            }
+            private TopicClient Init()
+            {
+                return TopicClient.CreateFromConnectionString(ConfigurationManager.AppSettings.Get("ServiceBusConnectionString"), "topic");
+            }
+            public void Send(string message)
+            {
+                Init().Send(new BrokeredMessage(message));
+            }
+            public SubscriptionClient GetClient()
+            {
+                return SubscriptionClient.CreateFromConnectionString(ConfigurationManager.AppSettings.Get("ServiceBusConnectionString"), "topic", "all");
+            }
+        }
+    }
+</pre>
+<h3>Hub</h3>
+<pre>
+    using Microsoft.AspNet.SignalR;
+    using Microsoft.AspNet.SignalR.Hubs;
+    using ServiceBus.Services;
+    using System.Collections.Generic;
+    using Newtonsoft.Json;
+    using Website.Models.ServiceBus;
+    using System;
+    namespace Website.Hubs
+    {
+        [HubName("ServiceBusTopicHub")]
+        public class ServiceBusTopicHub : Hub
+        {
+            private readonly TopicService _topicService;
+            public ServiceBusTopicHub()
+            {
+                _topicService = new TopicService();
+            }
+            public void Start()
+            {
+                try
+                {
+                    _topicService.GetClient().OnMessageAsync(async brokerMessage =>
+                    {
+                        try
+                        {
+                            var message = brokerMessage.GetBody<string>();
+                            if (!string.IsNullOrEmpty(message))
+                            {
+                                var context = GlobalHost.ConnectionManager.GetHubContext<ServiceBusTopicHub>();
+                                var obj = JsonConvert.DeserializeObject<MessageDo>(message);
+                                await context.Clients.All.SendMessage(obj.Message, obj.Name);
+                            }
+                            brokerMessage.Complete();
+                        }
+                        catch(Exception e)
+                        {
+                            brokerMessage.Abandon();
+                        }
+                    });
+                }
+                catch
+                {
+                    Start();
+                }
+            }
+            public void Send(string message, string name)
+            {
+                if (string.IsNullOrEmpty(message)) return;
+                if (string.IsNullOrEmpty(name))
+                    name = "Anonymous";
+                _topicService.Send(JsonConvert.SerializeObject(new MessageDo(message, name)));
+            }
+        }
+    }
+</pre>
+@section scripts{
+    <script src="~/Scripts/jquery.signalR-2.1.2.min.js"></script>
+    <script src="~/signalr/hubs"></script>
+
+    <script>
+        $(function () {
+            var queue = $.connection.ServiceBusTopicHub;
+            queue.client.SendMessage = function (message, name) {
+                $('#chat').append('<p class="chatmessage"><h5>' + name + ':</h5>' + message + '</p>');
+                var objDiv = document.getElementById("chat");
+                objDiv.scrollTop = objDiv.scrollHeight;
+            };
+            $.connection.hub.start().done(function () {
+                queue.server.start();
+                $('#sendmessage').click(function () {
+                    queue.server.send($('#message').val(), $('#name').val());
+                    $('#message').val('').focus();
+                });
+
+                var chat = document.getElementById("message");
+                chat.addEventListener("keydown", function (e) {
+                    if (e.keyCode === 13) {
+                        queue.server.send($('#message').val(), $('#name').val());
+                        $('#message').val('').focus();
+                    }
+                });
+            })
+        });
+    </script>
+}
